@@ -1,0 +1,22 @@
+{
+  "appTitle": "Study Nova",
+  "smartInbox": "Smart Inbox",
+  "uploadMaterials": "Your Learning Hub",
+  "recentMaterials": "Recent Materials",
+  "mySpace": "My Space",
+  "settings": "Settings",
+  "appearance": "Appearance",
+  "language": "Language",
+  "darkMode": "Dark mode",
+  "accentColor": "Accent color",
+  "welcomeTitle": "Welcome to Study Nova",
+  "welcomeSubtitle": "Turn notes, docs, and classes into confident study sessions.",
+  "continueText": "Continue",
+  "chooseLanguage": "Choose your language",
+  "onboardingUpload": "Upload your material",
+  "onboardingUploadDesc": "PDFs, notes, and documents become instant study resources.",
+  "onboardingFlashcards": "Build flashcards fast",
+  "onboardingFlashcardsDesc": "Turn each lesson into quick review cards and study reminders.",
+  "onboardingTheme": "Personalize your workspace",
+  "onboardingThemeDesc": "Adjust the theme, accent color, and dark mode to match your style."
+}
