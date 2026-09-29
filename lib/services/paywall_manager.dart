@@ -40,7 +40,10 @@ class PaywallManager {
       }
 
       if (apiKey.isEmpty) {
-        debugPrint('No RevenueCat API key configured for platform.');
+        debugPrint(
+          'RevenueCat is not configured: missing RC_GOOGLE_KEY/RC_APPLE_KEY. '
+          'Launch with --dart-define-from-file=api_keys.json or pass the values with --dart-define.',
+        );
         return;
       }
 

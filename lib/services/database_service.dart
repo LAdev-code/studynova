@@ -1,5 +1,6 @@
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/flashcard.dart';
 import '../models/study_material.dart';
 import '../models/event.dart';
@@ -135,17 +136,41 @@ class DatabaseService {
   }
 
   Future<List<String>> getAllSubjects() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedSubjects = prefs.getStringList('custom_subjects') ?? <String>[];
+
     final isar = await db;
     final materials = await isar.studyMaterials.where().findAll();
     final flashcards = await isar.flashcards.where().findAll();
-    
+    final events = await isar.events.where().findAll();
+
     final subjects = <String>{'General'};
+    for (var subject in storedSubjects) {
+      final cleaned = subject.trim();
+      if (cleaned.isNotEmpty) subjects.add(cleaned);
+    }
     for (var m in materials) {
-      subjects.add(m.subject);
+      final subject = m.subject.trim();
+      if (subject.isNotEmpty) subjects.add(subject);
     }
     for (var f in flashcards) {
-      subjects.add(f.subject);
+      final subject = f.subject.trim();
+      if (subject.isNotEmpty) subjects.add(subject);
+    }
+    for (var event in events) {
+      final subject = (event.relatedSubject ?? '').trim();
+      if (subject.isNotEmpty) subjects.add(subject);
     }
     return subjects.toList()..sort();
+  }
+
+  Future<void> saveSubject(String subject) async {
+    final cleaned = subject.trim();
+    if (cleaned.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final current = prefs.getStringList('custom_subjects') ?? <String>[];
+    final next = <String>{...current, cleaned}.toList()..sort();
+    await prefs.setStringList('custom_subjects', next);
   }
 }

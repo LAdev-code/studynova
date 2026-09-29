@@ -240,27 +240,41 @@ class _MySpaceScreenState extends State<MySpaceScreen> {
           const SizedBox(height: 16),
           Expanded(
             child: _selectedEvents.isEmpty
-                ? Center(
-                    child: FadeIn(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.event_available_outlined,
-                            size: 64,
-                            color: colorScheme.outlineVariant,
+                ? LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No study tasks for today',
-                            style: TextStyle(
-                              color: colorScheme.outline,
-                              fontSize: 16,
+                          child: Center(
+                            child: FadeIn(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.event_available_outlined,
+                                    size: 56,
+                                    color: colorScheme.outlineVariant,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No study tasks for today',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: colorScheme.outline,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -427,79 +441,159 @@ class _MySpaceScreenState extends State<MySpaceScreen> {
     final titleController = TextEditingController();
     final descController = TextEditingController();
     String selectedSubject = 'General';
-    final subjects = await widget.databaseService.getAllSubjects();
+    List<String> subjects = await widget.databaseService.getAllSubjects();
+
+    if (subjects.isNotEmpty && !subjects.contains('General')) {
+      selectedSubject = subjects.first;
+    }
 
     if (!mounted) return;
 
     return showDialog(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text('Add Study Task'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Task Title',
-                    hintText: 'e.g., Read Physics Chapter 3',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descController,
-                  decoration: const InputDecoration(
-                    labelText: 'Details (Optional)',
-                  ),
-                ),
-                const SizedBox(height: 20),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedSubject,
-                  decoration: const InputDecoration(labelText: 'Subject'),
-                  items: subjects
-                      .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                      .toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setDialogState(() => selectedSubject = val);
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (titleController.text.isNotEmpty) {
-                  final event = Event()
-                    ..title = titleController.text
-                    ..description = descController.text
-                    ..dateTime = _selectedDay ?? DateTime.now()
-                    ..isCompleted = false
-                    ..relatedSubject = selectedSubject;
+      useSafeArea: true,
+      builder: (dialogContext) {
+        final keyboardInset = MediaQuery.of(dialogContext).viewInsets.bottom;
 
-                  await widget.databaseService.saveEvent(event);
-                  if (mounted && dialogContext.mounted) {
-                    Navigator.pop(dialogContext);
-                    _loadEvents(_selectedDay ?? DateTime.now());
-                  }
-                }
-              },
-              child: const Text('Add Task'),
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            scrollable: true,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-          ],
-        ),
-      ),
+            title: const Text('Add Study Task'),
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 420,
+                maxHeight: MediaQuery.of(dialogContext).size.height * 0.7,
+              ),
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(bottom: keyboardInset > 0 ? keyboardInset : 0),
+                child: SizedBox(
+                  width: 320,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: titleController,
+                        autofocus: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Task Title',
+                          hintText: 'e.g., Read Physics Chapter 3',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: descController,
+                        decoration: const InputDecoration(
+                          labelText: 'Details (Optional)',
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      DropdownButtonFormField<String>(
+                        initialValue: subjects.contains(selectedSubject)
+                            ? selectedSubject
+                            : (subjects.isNotEmpty ? subjects.first : 'General'),
+                        decoration: const InputDecoration(labelText: 'Subject'),
+                        items: [
+                          ...subjects
+                              .map((s) => DropdownMenuItem(value: s, child: Text(s))),
+                          const DropdownMenuItem(
+                            value: '__add_new_subject__',
+                            child: Row(
+                              children: [
+                                Icon(Icons.add_circle_outline, size: 18),
+                                SizedBox(width: 8),
+                                Text('Add new subject'),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onChanged: (val) async {
+                          if (val == null) return;
+                          if (val == '__add_new_subject__') {
+                            final subjectController = TextEditingController();
+                            final newSubject = await showDialog<String>(
+                              context: dialogContext,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Add Subject'),
+                                content: TextField(
+                                  controller: subjectController,
+                                  autofocus: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Subject name',
+                                    hintText: 'e.g. Biology',
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      final value = subjectController.text.trim();
+                                      if (value.isNotEmpty) {
+                                        Navigator.pop(context, value);
+                                      }
+                                    },
+                                    child: const Text('Save'),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (newSubject == null || newSubject.trim().isEmpty) {
+                              return;
+                            }
+
+                            final normalized = newSubject.trim().replaceAll(RegExp(r'\s+'), ' ');
+                            if (!subjects.any((subject) =>
+                                subject.toLowerCase() == normalized.toLowerCase())) {
+                              await widget.databaseService.saveSubject(normalized);
+                              subjects = [...subjects, normalized]..sort();
+                            }
+                            setDialogState(() => selectedSubject = normalized);
+                            return;
+                          }
+
+                          setDialogState(() => selectedSubject = val);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (titleController.text.isNotEmpty) {
+                    final event = Event()
+                      ..title = titleController.text
+                      ..description = descController.text
+                      ..dateTime = _selectedDay ?? DateTime.now()
+                      ..isCompleted = false
+                      ..relatedSubject = selectedSubject;
+
+                    await widget.databaseService.saveEvent(event);
+                    if (mounted && dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                      _loadEvents(_selectedDay ?? DateTime.now());
+                    }
+                  }
+                },
+                child: const Text('Add Task'),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

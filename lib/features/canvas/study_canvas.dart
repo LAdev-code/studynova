@@ -50,7 +50,48 @@ class _StudyCanvasState extends State<StudyCanvas> {
     final subjects = await widget.databaseService.getAllSubjects();
     setState(() {
       _subjects = ['All', ...subjects];
+      if (!_subjects.contains(_selectedSubject) && _selectedSubject != 'All') {
+        _selectedSubject = 'All';
+      }
     });
+  }
+
+  Future<String?> _showAddSubjectDialog() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Add Subject'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Subject name',
+            hintText: 'e.g. Biology',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) {
+                Navigator.pop(dialogContext, value);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null || result.trim().isEmpty) return null;
+    final normalized = result.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (normalized.isEmpty) return null;
+    return normalized;
   }
 
   Future<void> _loadFlashcards() async {
@@ -215,7 +256,7 @@ class _StudyCanvasState extends State<StudyCanvas> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      initialValue: _selectedSubject,
+                      initialValue: _subjects.contains(_selectedSubject) ? _selectedSubject : 'All',
                       decoration: InputDecoration(
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -223,18 +264,45 @@ class _StudyCanvasState extends State<StudyCanvas> {
                         filled: true,
                         fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                       ),
-                      items: _subjects.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                      items: [
+                        ..._subjects.map((s) => DropdownMenuItem(value: s, child: Text(s))),
+                        const DropdownMenuItem(
+                          value: '__add_new_subject__',
+                          child: Row(
+                            children: [
+                              Icon(Icons.add_circle_outline, size: 18),
+                              SizedBox(width: 8),
+                              Text('Add new subject'),
+                            ],
+                          ),
+                        ),
+                      ],
                       onChanged: _isReviewMode || StudyCanvas.materialFilter.value != null
                         ? null 
-                        : (val) {
-                          if (val != null) {
+                        : (val) async {
+                            if (val == null) return;
+                            if (val == '__add_new_subject__') {
+                              final newSubject = await _showAddSubjectDialog();
+                              if (newSubject == null) return;
+                              final normalized = newSubject.trim();
+                              final exists = _subjects.any((subject) => subject.toLowerCase() == normalized.toLowerCase());
+                              if (!exists) {
+                                await widget.databaseService.saveSubject(normalized);
+                                await _loadSubjects();
+                              }
+                              setState(() {
+                                _selectedSubject = normalized;
+                                _currentIndex = 0;
+                              });
+                              await _loadFlashcards();
+                              return;
+                            }
                             setState(() {
                               _selectedSubject = val;
                               _currentIndex = 0;
                             });
-                            _loadFlashcards();
-                          }
-                        },
+                            await _loadFlashcards();
+                          },
                     ),
                   ),
                 ],
